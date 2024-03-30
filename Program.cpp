@@ -5,122 +5,83 @@
 #include <SDL2/SDL_mixer.h>
 #include <SDL2/SDL_image.h>
 
+#include "Constant.h"
 #include "Utilities.h"
 
-#define WIDTH               1280
-#define HEIGHT              720
-#define FPS                 120
-
-SDL_Window* Init();
+SDL_Window* InitWindow();
 void InitDriver(SDL_Window* window);
 SDL_Renderer* InitRenderer(SDL_Window* window);
-void MainLoop(std::function<void(SDL_Renderer*)>& loopFunc, std::function<void(SDL_Event*)>& eventFunc);
+
+void MainLoop(void(*loopFunc)(), void(*eventFunc)(SDL_Event* event));
 void CleanUp();
 
+// global window's objects
 SDL_Window* window;
 SDL_Renderer* renderer;
+bool running = true;
 
-TTF_Font* gSemiBold;
+Scene startScene;
+void InitStartScene() {
+    TTF_Font* primaryFont = TTF_OpenFont("./assets/font/SourceCodePro-SemiBold.ttf", 40);
+    TTF_Font* titleFont = TTF_OpenFont("./assets/font/SourceCodePro-ExtraBold.ttf", 100);
+    int btnW = 250, btnH = 65, posx = CalcPadding(WIDTH, btnW), posy = CalcPadding(HEIGHT, btnH) + btnH;
 
-class GameObject {
-private:
-    SDL_Texture* texture;
-    SDL_Rect position;
-public:
-    GameObject(SDL_Texture* texture, SDL_Rect position) : texture(texture), position(position) {}
-    GameObject(SDL_Renderer* renderer, SDL_Rect position) : position(position) {
-        this->texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, position.w, position.h);
+    GameObject* playBtn_ = CreateBtnObj(renderer, { "PLAY",primaryFont,white }, green, { posx,posy,btnW,btnH });
+    GameObject* optBtn_ = CreateBtnObj(renderer, { "OPTIONS",primaryFont,white }, grey, { posx,posy += btnH * 1.3,btnW,btnH });
+    GameObject* quitBtn_ = CreateBtnObj(renderer, { "QUIT",primaryFont,white }, red, { posx,posy += btnH * 1.3,btnW,btnH });
+
+    SDL_Texture* texture = WriteText(renderer, titleFont, "CHESS", white);
+    GameObject* test = new GameObject{ texture, new SDL_Rect{ CalcPadding(WIDTH,300),50,300,100 },-10 };
+
+    startScene.objects["playButton"] = playBtn_;
+    startScene.objects["optionButton"] = optBtn_;
+    startScene.objects["quitButton"] = quitBtn_;
+    startScene.objects["test"] = test;
+
+
+    startScene.displayObjects[playBtn_] = true;
+    startScene.displayObjects[optBtn_] = true;
+    startScene.displayObjects[quitBtn_] = true;
+    startScene.displayObjects[test] = true;
+
+    TTF_CloseFont(primaryFont);
+    TTF_CloseFont(titleFont);
+}
+void LoopStartScene() {
+    for (auto const& [key, value] : startScene.objects) {
+        if (startScene.displayObjects.at(value)) SDL_RenderCopyEx(renderer, value->texture, NULL, value->pos, value->angle, NULL, SDL_FLIP_NONE);
     }
-    GameObject(SDL_Renderer* renderer, SDL_Rect position, SDL_Color color) : position(position) {
-        this->texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, position.w, position.h);
+}
 
-        SDL_Rect rect = { 0,0,position.w,position.h };
-        SDL_SetRenderTarget(renderer, texture);
-        SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-        SDL_RenderFillRect(renderer, &rect);
+void EventStartScene(SDL_Event* event) {
 
-        SDL_SetRenderTarget(renderer, NULL);
+}
+
+void CleanStartScene() {
+    startScene.displayObjects.clear();
+    for (auto const& [key, value] : startScene.objects) {
+        SDL_DestroyTexture(value->texture);
+        delete value->pos;
+        delete value;
     }
-    GameObject(SDL_Renderer* renderer, SDL_Surface* surface, SDL_Rect position) : position(position) {
-        this->texture = SDL_CreateTextureFromSurface(renderer, surface);
-    }
-    ~GameObject() { SDL_DestroyTexture(texture); }
-
-    void AddTexture(SDL_Renderer* renderer, SDL_Texture* texture, SDL_Rect localPosition) {
-        SDL_SetRenderTarget(renderer, texture);
-        SDL_RenderCopy(renderer, texture, NULL, &localPosition);
-        SDL_SetRenderTarget(renderer, NULL);
-    }
-    void AddTexture(SDL_Renderer* renderer, SDL_Surface* surface, SDL_Rect localPosition) {
-        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-
-        SDL_SetRenderTarget(renderer, this->texture);
-        SDL_RenderCopy(renderer, texture, NULL, &localPosition);
-        SDL_SetRenderTarget(renderer, NULL);
-
-        SDL_DestroyTexture(texture);
-    }
-    void AddTexture(SDL_Renderer* renderer, SDL_Rect localPosition, SDL_Color color) {
-        SDL_SetRenderTarget(renderer, this->texture);
-        SDL_RenderFillRect(renderer, &localPosition);
-        SDL_SetRenderTarget(renderer, NULL);
-    }
-
-    SDL_Texture* GetTexture() const { return texture; }
-    SDL_Rect GetHitbox() const { return position; }
-
-    void Display(SDL_Renderer* renderer) const { SDL_RenderCopy(renderer, this->texture, NULL, &this->position); };
-};
-
-class Scene {
-private:
-    std::string name;
-    std::map<std::string, GameObject*> objects;
-public:
-    Scene(std::string name) : name(name), objects({}) {}
-    ~Scene() {
-        for (std::pair<std::string, GameObject*> x : objects) delete x.second;
-    }
-
-    void AddTexture(std::string name, SDL_Texture* texture, SDL_Rect position) {
-        GameObject* object = new GameObject(texture, position);
-        this->AddTexture(name, object);
-    }
-    void AddTexture(std::string name, GameObject* gameObject) {
-        this->objects[name] = gameObject;
-    }
-
-    void RemoveTexture(std::string name) {
-        delete this->objects.at(name);
-        this->objects.erase(name);
-    }
-    GameObject* GetGameObject(std::string name) { return this->objects.at(name); }
-
-    std::function<void(SDL_Renderer* renderer)> MainLoop;
-    std::function<void(SDL_Event* event)> EventListener;
-};
+}
 
 int main(int argc, char* argv[]) {
-    window = Init();
+    window = InitWindow();
     InitDriver(window);
     renderer = InitRenderer(window);
 
-    Scene startScene("startScene");
+    InitStartScene();
 
-    startScene.MainLoop = [&](SDL_Renderer* renderer) {};
-    startScene.EventListener = [&](SDL_Event* event) {
+    MainLoop(LoopStartScene, EventStartScene);
 
-        };
-
-    MainLoop(startScene.MainLoop, startScene.EventListener);
-
-    /* Release resources */
+    CleanStartScene();
     CleanUp();
 
     return 0;
 }
 
-SDL_Window* Init() {
+SDL_Window* InitWindow() {
     if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
         printf("Error initializing SDL: %s\n", SDL_GetError());
         exit(1);
@@ -138,13 +99,13 @@ SDL_Window* Init() {
 void InitDriver(SDL_Window* window) {
     if (TTF_Init() < 0) {
         printf("%s", TTF_GetError());
-        TTF_Quit();
+        CleanUp();
         exit(1);
     }
 
     if (IMG_Init(63) == 0) {
         std::cout << "Error Init Image" << std::endl;
-        IMG_Quit();
+        CleanUp();
         exit(1);
     }
 
@@ -152,8 +113,6 @@ void InitDriver(SDL_Window* window) {
     SDL_Surface* surface = IMG_Load("./assets/image/icon.png");
     SDL_SetWindowIcon(window, surface);
     SDL_FreeSurface(surface);
-
-    gSemiBold = TTF_OpenFont("./assets/font/SourceCodePro-SemiBold.ttf", 40);
 }
 SDL_Renderer* InitRenderer(SDL_Window* window) {
     SDL_Renderer* rend = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
@@ -169,8 +128,7 @@ SDL_Renderer* InitRenderer(SDL_Window* window) {
     return rend;
 }
 
-void MainLoop(std::function<void(SDL_Renderer*)>& loopFunc, std::function<void(SDL_Event*)>& eventFunc) {
-    bool running = true;
+void MainLoop(void(*loopFunc)(), void(*eventFunc)(SDL_Event* event)) {
     SDL_Event event;
 
     while (running) {
@@ -178,7 +136,7 @@ void MainLoop(std::function<void(SDL_Renderer*)>& loopFunc, std::function<void(S
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
-        loopFunc(renderer);
+        loopFunc();
 
         SDL_RenderPresent(renderer);
         while (SDL_PollEvent(&event)) {
@@ -193,7 +151,6 @@ void MainLoop(std::function<void(SDL_Renderer*)>& loopFunc, std::function<void(S
 void CleanUp() {
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
-    TTF_CloseFont(gSemiBold);
 
     TTF_Quit();
     IMG_Quit();

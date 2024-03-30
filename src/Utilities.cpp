@@ -28,3 +28,29 @@ SDL_Texture* DisplayImage(SDL_Renderer* renderer, std::string const path) {
 
     return texture;
 }
+
+SDL_Texture* CreateBtnTex(SDL_Renderer* renderer, SDL_Texture* text, SDL_Color color, int width, int height) {
+    int w, h; SDL_QueryTexture(text, nullptr, nullptr, &w, &h);
+    SDL_Texture* result = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, w + width, h + height);
+
+    SDL_Rect fillRect{ 0,0,w + width,h + height }, imgRect{ width / 2,height / 2,w,h };
+
+    SDL_SetRenderTarget(renderer, result);
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    SDL_RenderFillRect(renderer, &fillRect);
+    SDL_RenderCopy(renderer, text, NULL, &imgRect);
+    SDL_SetRenderTarget(renderer, NULL);
+
+    SDL_DestroyTexture(text);
+
+    return result;
+}
+
+// template <typename T> T CalcPadding(T width, T innerWidth) { return (width - innerWidth) / 2; }
+GameObject* CreateBtnObj(SDL_Renderer* renderer, TextObj text, SDL_Color color, SDL_Rect position) {
+    int w, h; TTF_SizeText(text.font, text.content.c_str(), &w, &h);
+    SDL_Texture* texture = WriteText(renderer, text.font, text.content, text.color);
+    SDL_Texture* button = CreateBtnTex(renderer, texture, color, CalcPadding(position.w, w), CalcPadding(position.h, h));
+
+    return new GameObject{ button,new SDL_Rect(position) ,0 };
+}
