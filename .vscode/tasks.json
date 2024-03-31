@@ -8,6 +8,7 @@
                 "-std=c++23",
                 "-fdiagnostics-color=always",
                 "-g",
+                // "${workspaceFolder}\\scene\\*.cpp",
                 "${workspaceFolder}\\src\\*.cpp",
                 "${workspaceFolder}\\*.cpp",
                 "-Isrc",

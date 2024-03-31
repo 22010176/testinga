@@ -5,6 +5,7 @@
 #include <SDL2/SDL_mixer.h>
 #include <SDL2/SDL_image.h>
 
+#include "Scene.h"
 #include "Constant.h"
 #include "Utilities.h"
 
@@ -12,13 +13,14 @@ SDL_Window* InitWindow();
 void InitDriver(SDL_Window* window);
 SDL_Renderer* InitRenderer(SDL_Window* window);
 
-void MainLoop(void(*loopFunc)(), void(*eventFunc)(SDL_Event* event));
+void MainLoop(void(*loopFunc)(SDL_Renderer*), void(*eventFunc)(SDL_Event* event));
 void CleanUp();
 
 // global window's objects
 SDL_Window* window;
 SDL_Renderer* renderer;
-bool running = true;
+bool running = true, mouseClick = false;
+SDL_Point mousePos;
 
 Scene startScene;
 void InitStartScene() {
@@ -26,44 +28,53 @@ void InitStartScene() {
     TTF_Font* titleFont = TTF_OpenFont("./assets/font/SourceCodePro-ExtraBold.ttf", 100);
     int btnW = 250, btnH = 65, posx = CalcPadding(WIDTH, btnW), posy = CalcPadding(HEIGHT, btnH) + btnH;
 
-    GameObject* playBtn_ = CreateBtnObj(renderer, { "PLAY",primaryFont,white }, green, { posx,posy,btnW,btnH });
-    GameObject* optBtn_ = CreateBtnObj(renderer, { "OPTIONS",primaryFont,white }, grey, { posx,posy += btnH * 1.3,btnW,btnH });
-    GameObject* quitBtn_ = CreateBtnObj(renderer, { "QUIT",primaryFont,white }, red, { posx,posy += btnH * 1.3,btnW,btnH });
+    Object playBtn;
+    playBtn.objects["normal"] = CreateBtnObj(renderer, { "PLAY",primaryFont,white }, green, { posx,posy,btnW,btnH });
+    playBtn.objects["hover"] = CreateBtnObj(renderer, { "PLAY",primaryFont,white }, darkGreen, { posx,posy,btnW,btnH });
+    playBtn.SetStage("normal");
+
+    Object optBtn;
+    optBtn.objects["normal"] = CreateBtnObj(renderer, { "OPTIONS",primaryFont,white }, grey, { posx,posy += btnH * 1.3,btnW,btnH });
+    optBtn.objects["hover"] = CreateBtnObj(renderer, { "OPTIONS",primaryFont,white }, darkGrey, { posx,posy,btnW,btnH });
+    optBtn.SetStage("normal");
+
+    Object quitBtn;
+    quitBtn.objects["normal"] = CreateBtnObj(renderer, { "QUIT",primaryFont,white }, red, { posx,posy += btnH * 1.3,btnW,btnH });
+    quitBtn.objects["hover"] = CreateBtnObj(renderer, { "QUIT",primaryFont,white }, darkRed, { posx,posy,btnW,btnH });
+    quitBtn.SetStage("normal");
 
     SDL_Texture* texture = WriteText(renderer, titleFont, "CHESS", white);
-    GameObject* test = new GameObject{ texture, new SDL_Rect{ CalcPadding(WIDTH,300),50,300,100 },-10 };
 
-    startScene.objects["playButton"] = playBtn_;
-    startScene.objects["optionButton"] = optBtn_;
-    startScene.objects["quitButton"] = quitBtn_;
-    startScene.objects["test"] = test;
+    GameObject test = GameObject(texture, { CalcPadding(WIDTH,500),50,500,200 }, -10);
+    GameObject dev = GameObject(DisplayImage(renderer, "./assets/image/icon.png"), { WIDTH - 100 - 10,10,100,100 });
 
+    startScene.objects["playButton"] = playBtn;
+    startScene.objects["optionButton"] = optBtn;
+    startScene.objects["quitButton"] = quitBtn;
 
-    startScene.displayObjects[playBtn_] = true;
-    startScene.displayObjects[optBtn_] = true;
-    startScene.displayObjects[quitBtn_] = true;
-    startScene.displayObjects[test] = true;
+    startScene.objects["logo"] = test;
+    startScene.objects["devPic"] = dev;
 
     TTF_CloseFont(primaryFont);
     TTF_CloseFont(titleFont);
 }
-void LoopStartScene() {
+void LoopStartScene(SDL_Renderer* renderer) {
     for (auto const& [key, value] : startScene.objects) {
-        if (startScene.displayObjects.at(value)) SDL_RenderCopyEx(renderer, value->texture, NULL, value->pos, value->angle, NULL, SDL_FLIP_NONE);
+        value.Display(renderer);
     }
 }
 
 void EventStartScene(SDL_Event* event) {
-
+    std::vector<std::string> trackHovers;
+    if (!mouseClick) {
+        for (auto& [key, value] : startScene.objects) {
+            if (!(value.display && CheckCollide(&value.pos, &mousePos))) continue;
+        }
+    }
 }
 
-void CleanStartScene() {
-    startScene.displayObjects.clear();
-    for (auto const& [key, value] : startScene.objects) {
-        SDL_DestroyTexture(value->texture);
-        delete value->pos;
-        delete value;
-    }
+void FreeStartScene() {
+
 }
 
 int main(int argc, char* argv[]) {
@@ -75,7 +86,7 @@ int main(int argc, char* argv[]) {
 
     MainLoop(LoopStartScene, EventStartScene);
 
-    CleanStartScene();
+    // FreeStartScene();
     CleanUp();
 
     return 0;
@@ -128,21 +139,33 @@ SDL_Renderer* InitRenderer(SDL_Window* window) {
     return rend;
 }
 
-void MainLoop(void(*loopFunc)(), void(*eventFunc)(SDL_Event* event)) {
+void MainLoop(void(*loopFunc)(SDL_Renderer*), void(*eventFunc)(SDL_Event* event)) {
     SDL_Event event;
 
     while (running) {
         SDL_Delay(1000 / FPS);
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
         SDL_RenderClear(renderer);
 
-        loopFunc();
+        loopFunc(renderer);
 
         SDL_RenderPresent(renderer);
+
+        SDL_GetMouseState(&mousePos.x, &mousePos.y);
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
                 running = false;
                 continue;
+            }
+            switch (event.type) {
+            case SDL_MOUSEBUTTONDOWN:
+                mouseClick = true;
+                break;
+            case SDL_MOUSEBUTTONUP:
+                mouseClick = false;
+                break;
+            default:
+                break;
             }
             eventFunc(&event);
         }

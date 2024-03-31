@@ -47,10 +47,28 @@ SDL_Texture* CreateBtnTex(SDL_Renderer* renderer, SDL_Texture* text, SDL_Color c
 }
 
 // template <typename T> T CalcPadding(T width, T innerWidth) { return (width - innerWidth) / 2; }
-GameObject* CreateBtnObj(SDL_Renderer* renderer, TextObj text, SDL_Color color, SDL_Rect position) {
+GameObject CreateBtnObj(SDL_Renderer* renderer, TextObj text, SDL_Color color, SDL_Rect position) {
     int w, h; TTF_SizeText(text.font, text.content.c_str(), &w, &h);
     SDL_Texture* texture = WriteText(renderer, text.font, text.content, text.color);
     SDL_Texture* button = CreateBtnTex(renderer, texture, color, CalcPadding(position.w, w), CalcPadding(position.h, h));
 
-    return new GameObject{ button,new SDL_Rect(position) ,0 };
+    return GameObject(button, position, 0);
+}
+
+std::vector<std::string> SplitStr(std::string s, std::string del) {
+    std::vector<std::string> result;
+    int start, end = -1 * del.size();
+
+    do {
+        start = end + del.size();
+        end = s.find(del, start);
+        result.push_back(s.substr(start, end - start));
+    } while (end != -1);
+
+    return result;
+}
+
+bool CheckCollide(SDL_Rect* pos, SDL_Point* point) {
+    return pos->y <= point->y && point->y <= pos->y + pos->h
+        && pos->x <= point->x && point->x <= pos->x + pos->w;
 }
