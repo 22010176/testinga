@@ -47,13 +47,13 @@ SDL_Texture* CreateBtnTex(SDL_Renderer* renderer, SDL_Texture* text, SDL_Color c
 }
 
 // template <typename T> T CalcPadding(T width, T innerWidth) { return (width - innerWidth) / 2; }
-GameObject CreateBtnObj(SDL_Renderer* renderer, TextObj text, SDL_Color color, SDL_Rect position) {
-    int w, h; TTF_SizeText(text.font, text.content.c_str(), &w, &h);
-    SDL_Texture* texture = WriteText(renderer, text.font, text.content, text.color);
-    SDL_Texture* button = CreateBtnTex(renderer, texture, color, CalcPadding(position.w, w), CalcPadding(position.h, h));
+// GameObject CreateBtnObj(SDL_Renderer* renderer, TextObj text, SDL_Color color, SDL_Rect position) {
+//     int w, h; TTF_SizeText(text.font, text.content.c_str(), &w, &h);
+//     SDL_Texture* texture = WriteText(renderer, text.font, text.content, text.color);
+//     SDL_Texture* button = CreateBtnTex(renderer, texture, color, CalcPadding(position.w, w), CalcPadding(position.h, h));
 
-    return GameObject(button, position, 0);
-}
+//     return GameObject(button, position, 0);
+// }
 
 std::vector<std::string> SplitStr(std::string s, std::string del) {
     std::vector<std::string> result;

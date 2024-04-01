@@ -5,7 +5,7 @@
 #define WIDTH               1280
 #define HEIGHT              720
 #define FPS                 120
-#define PI                  3.141592653
+#define PI                  3.1415926535898
 
 const SDL_Color white{ 255,255,255,255 };
 const SDL_Color black{ 0,0,0,255 };
